@@ -1,7 +1,6 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask import render_template, request, redirect, url_for
 from flask_login import LoginManager, login_user, logout_user,login_required
-from werkzeug.security import generate_password_hash, check_password_hash
 from flask_bootstrap import Bootstrap
 import os
 from database import db, Post, User
@@ -33,15 +32,30 @@ def index():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        if "signup_button" in request.form:
+            username = request.form.get("username")
+            password = request.form.get("password")
+            re_password = request.form.get("re_password")
 
-        user = User(username=username)
-        user.set_password(password)
+            exist_user = User.query.filter(User.username == username).all()
+            if exist_user:
+                signup_existUser_alert_message = "そのユーザ名は既に使われています"
+                return render_template("signup.html", signup_alert_message=signup_existUser_alert_message)
 
-        db.session.add(user)
-        db.session.commit()
-        return redirect("/login")
+            if password == "" and re_password == "":
+                signup_blank_alert_message = "パスワードかパスワード(確認用)が空白です"
+                return render_template("signup.html", signup_alert_message=signup_blank_alert_message)
+            elif password != re_password:
+                signup_type_alert_message = "パスワードとパスワード(確認用)が一致しません"
+                return render_template("signup.html", signup_alert_message=signup_type_alert_message)
+            user = User(username=username)
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            return redirect("/login")
+        elif "back_button" in request.form:
+            return redirect("/login")
+
     else:
         return render_template("signup.html")
 
@@ -49,16 +63,19 @@ def signup():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        if "login_button" in request.form:
+            username = request.form.get("username")
+            password = request.form.get("password")
 
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
-            login_user(user)
-            return redirect("/")
-        else:
-            alert_message = "そのユーザネームとパスワードは間違っています。"
-            return render_template("login.html", alert_message=alert_message)
+            user = User.query.filter_by(username=username).first()
+            if user and user.check_password(password):
+                login_user(user)
+                return redirect("/")
+            else:
+                login_type_alert_message = "ユーザネームかパスワードが間違っています。"
+                return render_template("login.html", login_alert_message=login_type_alert_message)
+        elif "signup_button" in request.form:
+            return redirect("signup")
     else:
         return render_template("login.html")
 
@@ -109,4 +126,4 @@ def delete(id):
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
